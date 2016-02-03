@@ -1,0 +1,14 @@
+
+
+.invalide {
+  border: 1px solid red;
+}
+
+.disable {
+  color: #ccc;
+}
+
+
+.active {
+  color: red;
+}

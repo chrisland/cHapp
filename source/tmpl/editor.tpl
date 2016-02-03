@@ -2,6 +2,7 @@
   <div class="logo"></div>
   <div id="editor.appname" class="pageBtn" data-task="editorClose"></div>
   <ul id="editor.nav">
+    <li class="pageBtn" data-page="editor/files" data-task="editorTabFiles" data-container="editor.content">files</li>
     <li class="pageBtn" data-page="editor/pages" data-task="editorTabPages" data-container="editor.content">pages</li>
     <li class="pageBtn" data-page="editor/config" data-task="editorTabConfig" data-container="editor.content">config</li>
     <li class="pageBtn" data-page="editor/index" data-task="editorTabIndex" data-container="editor.content">index</li>

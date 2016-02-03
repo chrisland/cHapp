@@ -2,7 +2,7 @@
 * Easy JS one-Page system framework with template files
 *
 * @class cPager
-* @version 0.1.5
+* @version 0.1.6
 * @license MIT
 *
 * @author Christian Marienfeld post@chrisand.de
@@ -170,7 +170,7 @@ cPager.prototype.switch = function (pageId, pageTask, pageContent, param) {
 *
 *
 * @function events
-* @version 0.1.0
+* @version 0.1.6
 *
 
 * @return {Boolean} true or false
@@ -179,7 +179,7 @@ cPager.prototype.switch = function (pageId, pageTask, pageContent, param) {
 */
 
 
-cPager.prototype.events = function () {
+cPager.prototype.events = function (forced) {
 
 	//console.log('events');
 
@@ -215,7 +215,10 @@ cPager.prototype.events = function () {
 	var pageBtns = document.getElementsByClassName(this._opt.handler);
 	for(var i = 0; i < pageBtns.length; i++) {
 		pageBtns[i].style.curser = 'pointer';  // IOS BUG
-		pageBtns[i].addEventListener('click',clickHandler);
+
+		if (!pageBtns[i].onclick || forced) {
+			pageBtns[i].onclick = clickHandler;
+		}
 	}
 	return true;
 };
