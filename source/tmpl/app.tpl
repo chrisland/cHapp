@@ -1,4 +1,4 @@
-<div class="header">
+<div class="header border-bottom">
   <div class="logo"></div>
   <ul>
     <li class="pageBtn" data-page="apps" data-task="appSave">Save</li>

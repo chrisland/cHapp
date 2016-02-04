@@ -43,10 +43,11 @@ var myTask = {
           data.map(function (obj, key, value) {
 
             var parent = document.createElement('li');
+            parent.className = 'flex border-bottom';
 
             var child = document.createElement('div');
             child.innerHTML = obj.name;
-            child.className = 'pageBtn';
+            child.className = 'pageBtn flex';
             child.setAttribute('data-page', 'editor');
             child.setAttribute('data-task', 'appOpen');
             child.setAttribute('data-content', obj.id);
@@ -54,14 +55,14 @@ var myTask = {
 
             var child = document.createElement('div');
             child.innerHTML = 'serve';
-            child.className = 'pageBtn';
+            child.className = 'pageBtn flex';
             child.setAttribute('data-task', 'appServe');
             child.setAttribute('data-content', obj.id);
             parent.appendChild(child);
 
             var child = document.createElement('div');
             child.innerHTML = 'settings';
-            child.className = 'pageBtn';
+            child.className = 'pageBtn flex';
             child.setAttribute('data-page', 'app');
             child.setAttribute('data-task', 'appEdit');
             child.setAttribute('data-content', obj.id);

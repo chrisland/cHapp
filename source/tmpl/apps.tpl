@@ -5,5 +5,6 @@
   </ul>
 </div>
 
-
-<ul id="apps.list"></ul>
+<div class="main p-top-2">
+    <ul id="apps.list"></ul>
+</div>
