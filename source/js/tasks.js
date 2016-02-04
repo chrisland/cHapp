@@ -2,13 +2,32 @@
 var _globals = {
   appActive: {
     data: undefined,
-    cssFiles: []
+
   },
   tabPages: {
     webview: undefined,
     editor: undefined,
     path: undefined
-  }
+  },
+  tabIndex: {
+    editor: undefined,
+    path: undefined,
+    cssFiles: [],
+    jsFiles: [],
+    jsInline: []
+  },
+  tabAppjs: {
+    editor: undefined,
+    path: undefined
+  },
+  tabStyle: {
+    editor: undefined,
+    path: undefined
+  },
+  tabConfig: {
+    path: undefined,
+    editor: undefined
+  },
 };
 
 var myTask = {
@@ -83,6 +102,9 @@ var myTask = {
       return false
     }
 
+    _globals.tabIndex.path = _globals.appActive.data.localPath+'/www/index.html';
+    _globals.tabAppjs.path = _globals.appActive.data.localPath+'/www/js/app.js';
+    _globals.tabConfig.path = _globals.appActive.data.localPath+'/config.xml';
 
     return function () {
       //console.log('myTask after');
@@ -246,23 +268,33 @@ var myTask = {
 
   editorTabHome: function (pageId, pageContent, event, dom) {
 
-    var data = myTaskHelper.getFile(_globals.appActive.data.localPath+'/www/index.html');
-    var htmlparser = require("htmlparser");
-    var handler = new htmlparser.DefaultHandler(function (error, dom) {
-      if (error) {
-        console.log(error);
-      } else {
-        myTaskHelper.findInHtmlObject(dom, 'tag', 'link', function (result) {
-          //console.log(result);
-          if (result && result.attribs.href) {
-            _globals.appActive.cssFiles.push(result.attribs.href);
-          }
-        });
-      }
-    });
-    var parser = new htmlparser.Parser(handler);
-    parser.parseComplete(data);
+    // TODO: check if all files exist if needed!
 
+    var data = myTaskHelper.getFile(_globals.tabIndex.path);
+
+    var htmlparser = require("htmlparser2");
+    var parser = new htmlparser.Parser({
+    	onopentag: function(name, attribs){
+        //console.log("start:", name, attribs);
+    		if(name === "link"){
+          if (attribs.href) {
+            _globals.tabIndex.cssFiles.push(attribs.href);
+          }
+    		}
+    	},
+    	ontext: function(text){
+    		//console.log("-->",  text);
+    	},
+    	onclosetag: function(tagname){
+        //console.log("end:",tagname);
+    	}
+    }, {decodeEntities: true});
+    parser.write(data);
+    parser.end();
+
+    //console.log(_globals.appActive);
+
+    return true;
   },
 
   editorTabPages: function (pageId, pageContent, event, dom) {
@@ -276,9 +308,8 @@ var myTask = {
 
       _globals.tabPages.webview = document.getElementById('editor.pages.preview.webview');
 
-      var textarea = document.getElementById('editor.pages.content.editor');
       var CodeMirror = require('CodeMirror');
-      _globals.tabPages.editor = CodeMirror.fromTextArea(textarea, {
+      _globals.tabPages.editor = CodeMirror.fromTextArea(document.getElementById('editor.pages.content.editor'), {
         lineNumbers: true
       });
 
@@ -288,8 +319,8 @@ var myTask = {
            _globals.tabPages.webview.loadURL('file://'+path);
 
            _globals.tabPages.webview.addEventListener('dom-ready', function () {
-             for (var i = 0; i < _globals.appActive.cssFiles.length; i++) {
-               var data = myTaskHelper.getFile(_globals.appActive.data.localPath+'/www/'+_globals.appActive.cssFiles[i]);
+             for (var i = 0; i < _globals.tabIndex.cssFiles.length; i++) {
+               var data = myTaskHelper.getFile(_globals.appActive.data.localPath+'/www/'+_globals.tabIndex.cssFiles[i]);
                _globals.tabPages.webview.insertCSS(data+'');
              }
            });
@@ -340,6 +371,8 @@ var myTask = {
 
     myTaskHelper.setActive('editor.pages.files', 'active');
 
+    document.getElementById('editor.pages.save').classList.add('disable');
+
     return false;
 
   },
@@ -386,31 +419,278 @@ var myTask = {
 
   },
 
-  editorTabConfig: function (pageId, pageContent, event, dom) {
-
-    return function () {
-      myTaskHelper.editorSwitchTab(event.target);
-    };
-  },
   editorTabIndex: function (pageId, pageContent, event, dom) {
 
-    var data = myTaskHelper.getFile(_globals.appActive.data.localPath+'/www/index.html');
+    var data = myTaskHelper.getFile(_globals.tabIndex.path);
+    if (!data) {
+      return false;
+    }
+    _globals.tabIndex.cssFiles = [];
+    _globals.tabIndex.jsFiles = [];
+    _globals.tabIndex.jsInline = [];
+
+    var needContainer = false;
+    var scriptOpen = false;
+    var htmlparser = require("htmlparser2");
+    var parser = new htmlparser.Parser({
+    	onopentag: function(name, attribs){
+        //console.log('start:',name, attribs);
+    		if(name === "script"){
+    			//console.log("start:", name, attribs, scriptOpen);
+          if (attribs.src) {
+            //console.log(attribs.src);
+            _globals.tabIndex.jsFiles.push(attribs.src);
+          } else {
+            scriptOpen = true;
+            //console.log("start script!", scriptOpen);
+          }
+    		} else if (name === "link"){
+          if (attribs.href) {
+            _globals.tabIndex.cssFiles.push(attribs.href);
+          }
+    		}
+        if (attribs.id == 'page') {
+          needContainer = true;
+        }
+    	},
+    	ontext: function(text){
+    		//console.log("-->",scriptOpen,  text);
+        if (text && scriptOpen) {
+          _globals.tabIndex.jsInline.push(text);
+          scriptOpen = false;
+        }
+    	},
+    	onclosetag: function(tagname){
+        //console.log("end:",tagname,scriptOpen);
+    	}
+    }, {decodeEntities: true});
+    parser.write(data);
+    parser.end();
+
 
     return function () {
 
-      var textarea = document.getElementById('editor');
-      textarea.value = data;
+      //console.log(_globals.appActive);
 
       var CodeMirror = require('CodeMirror');
-
-      var editor = CodeMirror.fromTextArea(textarea, {
+      _globals.tabIndex.editor = CodeMirror.fromTextArea(document.getElementById('editor.index.content'), {
         lineNumbers: true
       });
+      _globals.tabIndex.editor.setValue(data+'');
+
+      _globals.tabIndex.editor.on('change', function (cm) {
+        document.getElementById('editor.index.save').classList.remove('disable');
+      });
+
+
+      var node = document.getElementById('editor.index.cssFiles');
+      var length = _globals.tabIndex.cssFiles.length;
+      if (length < 1) {
+        var node = document.getElementById('editor.index.cssFilesError');
+        node.innerHTML = 'Missing CSS Files';
+        node.classList.remove('hidden');
+      } else {
+        for (var i = 0; i < length; i++) {
+          var child = document.createElement('div');
+          child.innerHTML = _globals.tabIndex.cssFiles[i];
+          child.className = 'pageBtn';
+          node.appendChild(child);
+        }
+      }
+
+
+      var node = document.getElementById('editor.index.jsFiles');
+      var length = _globals.tabIndex.jsFiles.length;
+      if (length < 1) {
+        var node = document.getElementById('editor.index.jsFilesError');
+        node.innerHTML = 'Missing JS Files';
+        node.classList.remove('hidden');
+      } else {
+        var needCordova = false;
+        for (var i = 0; i < length; i++) {
+          var child = document.createElement('div');
+          child.innerHTML = _globals.tabIndex.jsFiles[i];
+          child.className = 'pageBtn';
+          node.appendChild(child);
+          if (_globals.tabIndex.jsFiles[i] == 'cordova.js') {
+            needCordova = true;
+          }
+        }
+        if (!needCordova) {
+          var node = document.getElementById('editor.index.jsFilesError');
+          node.innerHTML = 'Missing Cordova js File';
+          node.classList.remove('hidden');
+        }
+      }
+
+      var length = _globals.tabIndex.jsInline.length;
+      if (length < 1) {
+        var node = document.getElementById('editor.index.jsInlineError');
+        node.innerHTML = 'Missing JS Inline';
+        node.classList.remove('hidden');
+      } else {
+        var needInit = false;
+        for (var i = 0; i < length; i++) {
+          if ( _globals.tabIndex.jsInline[i].match('.initialize()') ) {
+            needInit = true;
+          }
+        }
+        if (!needInit) {
+          var node = document.getElementById('editor.index.jsInlineError');
+          node.innerHTML = 'Missing JS Inline initialize()';
+          node.classList.remove('hidden');
+        }
+      }
+
+      if (!needContainer) {
+        var node = document.getElementById('editor.index.containerError');
+        node.innerHTML = 'Maybe no Container definied ?';
+        node.classList.remove('hidden');
+      }
+
 
       myTaskHelper.editorSwitchTab(event.target);
     };
 
   },
+  editorTabIndexSave: function (pageId, pageContent, event, dom) {
+
+    myTaskHelper.saveFile(_globals.tabIndex.path, _globals.tabIndex.editor.getValue(), function () {
+      myPager.switch('editor/index','editorTabIndex','',{container:'editor.content',});
+    });
+
+  },
+
+  editorTabConfig: function (pageId, pageContent, event, dom) {
+
+    var data = myTaskHelper.getFile(_globals.tabConfig.path);
+    if (!data) {
+      return false;
+    }
+
+    var obj = {
+      '?xml version=\"1.0\" encoding=\"utf-8\"?' : null,
+      request : {
+        '@' : {
+          type : 'product',
+          id : 12344556
+        },
+        '#' : {
+          query : {
+            '#': [
+              {
+                '@':{
+                  hallo: 'du'
+                },
+                '#': 'vendor'
+              },
+              {
+                '@':{
+                  hallo: 'du2'
+                },
+                '#': 'vendor'
+              }
+            ]
+          }
+        }
+      }
+    };
+
+    var tmp = false;
+    var htmlparser = require("htmlparser2");
+    var parser = new htmlparser.Parser({
+    	onopentag: function(name, attribs){
+        console.log('start:',name, attribs, tmp);
+        if (name == 'widget' ) {
+          obj.widget = {
+            '@':attribs,
+            '#':{}
+          };
+        } else {
+          //tmp = [name,attribs];
+          tmp = [name, {}];
+          if (attribs) {
+            tmp[1]['@'] = attribs;
+          }
+        }
+        /*else if (name == 'name' ) {
+
+          tmp = [name,attribs];
+        } else if (name == 'description' ) {
+
+        } else if (name == 'author' ) {
+
+        } else if (name == 'content' ) {
+          tmp = [name,attribs];
+        } else if (name == 'platform' ) {
+
+        } else if (name == 'preference' ) {
+
+        } else if (name == 'gap:plugin' ) {
+
+        } else if (name == 'plugin' ) {
+
+        } else if (name == 'gap:config-file' ) {
+
+        } else if (name == 'access' ) {
+
+        } else if (name == 'allow-intent' ) {
+
+        } else if (name == 'icon' ) {
+
+        } else if (name == 'gap:splash' ) {
+
+        } else if (name == 'splash' ) {
+
+        }*/
+    	},
+    	ontext: function(text){
+    		console.log("-->",  text, tmp);
+        if (text && tmp) {
+          tmp[1]['#'] = text;
+        }
+    	},
+    	onclosetag: function(tagname){
+        console.log("end:",tagname,tmp);
+        if (tmp) {
+          if ( !Array.isArray(obj.widget['#'][tmp[0]]) ) {
+            obj.widget['#'][tmp[0]] = [];
+          }
+          obj.widget['#'][tmp[0]].push(tmp[1]);
+
+          //console.log(typeof obj.widget['#'][tmp[0]]);
+
+        }
+        tmp = false;
+    	},
+      oncomment: function(tagname){
+        console.log("//:",tagname);
+    	}
+    }, {decodeEntities: true, xmlMode: true});
+    parser.write(data);
+    parser.end();
+
+    //console.log(parser);
+
+    return function () {
+
+      var CodeMirror = require('CodeMirror');
+      _globals.tabConfig.editor = CodeMirror.fromTextArea(document.getElementById('editor.config.content'), {
+        lineNumbers: true
+      });
+      _globals.tabConfig.editor.setValue(data+'');
+
+      _globals.tabConfig.editor.on('change', function (cm) {
+        document.getElementById('editor.config.save').classList.remove('disable');
+      });
+
+      var o2x = require('object-to-xml');
+      console.log(o2x(obj));
+
+      myTaskHelper.editorSwitchTab(event.target);
+    };
+  },
+
   editorTabIcons: function (pageId, pageContent, event, dom) {
 
     return function () {
@@ -429,35 +709,98 @@ var myTask = {
       myTaskHelper.editorSwitchTab(event.target);
     };
   },
+
   editorTabAppjs: function (pageId, pageContent, event, dom) {
 
-    var data = myTaskHelper.getFile(_globals.appActive.data.localPath+'/www/js/app.js');
-
-    //console.log( JSON.parse(data) );
-
-
+    var data = myTaskHelper.getFile(_globals.tabAppjs.path);
 
     return function () {
 
-      var textarea = document.getElementById('editor');
-      textarea.value = data;
 
       var CodeMirror = require('CodeMirror');
-
-      var editor = CodeMirror.fromTextArea(textarea, {
+      _globals.tabAppjs.editor = CodeMirror.fromTextArea(document.getElementById('editor.appjs.content'), {
         lineNumbers: true
+      });
+      _globals.tabAppjs.editor.setValue(data+'');
+      _globals.tabAppjs.editor.on('change', function (cm) {
+        document.getElementById('editor.appjs.save').classList.remove('disable');
       });
 
       myTaskHelper.editorSwitchTab(event.target);
     };
 
   },
+  editorTabAppjsSave: function (pageId, pageContent, event, dom) {
+
+    myTaskHelper.saveFile(_globals.tabAppjs.path, _globals.tabAppjs.editor.getValue(), function () {
+      document.getElementById('editor.appjs.save').classList.add('disable');
+    });
+
+  },
+
   editorTabStyle: function (pageId, pageContent, event, dom) {
 
+    var list = myTaskHelper.getDir(_globals.appActive.data.localPath+'/www/css/');
+
     return function () {
+
+      var node = document.getElementById('editor.style.files');
+
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].ext == 'css') {
+          var child = document.createElement('li');
+          child.innerHTML = list[i].name;
+          child.className = 'pageBtn';
+          child.setAttribute('data-task', 'editorTabStyleOpen');
+          child.setAttribute('data-content', list[i].name);
+
+          if ( !_globals.tabIndex.cssFiles.includes('css/'+list[i].name) ) {
+            child.className += ' invalide';
+          }
+
+          node.appendChild(child);
+        }
+      }
+
       myTaskHelper.editorSwitchTab(event.target);
     };
   },
+  editorTabStyleOpen: function (pageId, pageContent, event, dom) {
+
+    if (!pageContent) {
+      return false;
+    }
+    var data = myTaskHelper.getFile(_globals.appActive.data.localPath+'/www/css/'+pageContent);
+    if (!data) {
+      return false;
+    }
+
+    _globals.tabStyle.path = _globals.appActive.data.localPath+'/www/css/'+pageContent;
+
+    var CodeMirror = require('CodeMirror');
+    _globals.tabStyle.editor = CodeMirror.fromTextArea(document.getElementById('editor.style.content'), {
+      lineNumbers: true
+    });
+    _globals.tabStyle.editor.setValue(data+'');
+    _globals.tabStyle.editor.on('change', function (cm) {
+      document.getElementById('editor.style.save').classList.remove('disable');
+    });
+
+    myTaskHelper.setActive('editor.style.files','active');
+
+    return false;
+
+  },
+  editorTabStyleSave: function (pageId, pageContent, event, dom) {
+
+    myTaskHelper.saveFile(_globals.tabStyle.path, _globals.tabStyle.editor.getValue(), function () {
+      document.getElementById('editor.style.save').classList.add('disable');
+    });
+
+  },
+
+
+
   editorTabTasks: function (pageId, pageContent, event, dom) {
 
     var data = myTaskHelper.getFile(_globals.appActive.data.localPath+'/www/js/tasks.js');
@@ -594,7 +937,7 @@ var myTaskHelper = {
     if (!list || !node) {
       return false;
     }
-    console.log(list, node, parentPath, clean);
+    //console.log(list, node, parentPath, clean);
     if (!parentPath) {
       parentPath = '';
     }
