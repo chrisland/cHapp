@@ -43,11 +43,11 @@ var myTask = {
           data.map(function (obj, key, value) {
 
             var parent = document.createElement('li');
-            parent.className = 'flex border-bottom';
+            parent.className = 'flex border-bottom p-top-1 p-bottom-1';
 
             var child = document.createElement('div');
             child.innerHTML = obj.name;
-            child.className = 'pageBtn flex';
+            child.className = 'pageBtn flex p-left-1';
             child.setAttribute('data-page', 'editor');
             child.setAttribute('data-task', 'appOpen');
             child.setAttribute('data-content', obj.id);
@@ -309,9 +309,17 @@ var myTask = {
 
       _globals.tabPages.webview = document.getElementById('editor.pages.preview.webview');
 
-      var CodeMirror = require('CodeMirror');
+      require('codemirror/mode/xml/xml');
+      require('codemirror/mode/javascript/javascript');
+      require('codemirror/mode/css/css');
+      require('codemirror/mode/htmlmixed/htmlmixed');
+
+      var CodeMirror = require('codemirror/lib/codemirror');
+
       _globals.tabPages.editor = CodeMirror.fromTextArea(document.getElementById('editor.pages.content.editor'), {
-        lineNumbers: true
+        lineNumbers: true,
+        theme: 'crisper',
+        mode: 'text/html'
       });
 
       _globals.tabPages.editor.on('change', function (cm) {
@@ -473,12 +481,20 @@ var myTask = {
 
       //console.log(_globals.appActive);
 
-      var CodeMirror = require('CodeMirror');
+      require('codemirror/mode/xml/xml');
+      require('codemirror/mode/javascript/javascript');
+      require('codemirror/mode/css/css');
+      require('codemirror/mode/htmlmixed/htmlmixed');
+
+      var CodeMirror = require('codemirror/lib/codemirror');
+
       _globals.tabIndex.editor = CodeMirror.fromTextArea(document.getElementById('editor.index.content'), {
-        lineNumbers: true
+        lineNumbers: true,
+        theme: 'crisper',
+        mode: 'text/html'
       });
       _globals.tabIndex.editor.setValue(data+'');
-
+      _globals.tabIndex.editor.refresh();
       _globals.tabIndex.editor.on('change', function (cm) {
         document.getElementById('editor.index.save').classList.remove('disable');
       });
@@ -494,7 +510,6 @@ var myTask = {
         for (var i = 0; i < length; i++) {
           var child = document.createElement('div');
           child.innerHTML = _globals.tabIndex.cssFiles[i];
-          child.className = 'pageBtn';
           node.appendChild(child);
         }
       }
@@ -511,7 +526,6 @@ var myTask = {
         for (var i = 0; i < length; i++) {
           var child = document.createElement('div');
           child.innerHTML = _globals.tabIndex.jsFiles[i];
-          child.className = 'pageBtn';
           node.appendChild(child);
           if (_globals.tabIndex.jsFiles[i] == 'cordova.js') {
             needCordova = true;
@@ -569,115 +583,112 @@ var myTask = {
       return false;
     }
 
-    var obj = {
-      '?xml version=\"1.0\" encoding=\"utf-8\"?' : null,
-      request : {
-        '@' : {
-          type : 'product',
-          id : 12344556
-        },
-        '#' : {
-          query : {
-            '#': [
-              {
-                '@':{
-                  hallo: 'du'
-                },
-                '#': 'vendor'
-              },
-              {
-                '@':{
-                  hallo: 'du2'
-                },
-                '#': 'vendor'
-              }
-            ]
+    var parser = new DOMParser();
+    var xmlDoc = parser.parseFromString(data,"text/xml");
+
+    console.log(xmlDoc);
+
+    var renderFormField = function (node) {
+      //console.log(node, node.childNodes);
+      if (node.nodeType == 3) {
+        //console.log('-ller');
+        return false;
+      }
+      var parent = document.createElement('li');
+
+      //console.log(node.attributes.length, node.attributes);
+      //node.attributes
+      var head = document.createElement('div');
+      head.innerHTML = node.nodeName;
+      parent.appendChild(head);
+
+      if (node.attributes) {
+
+
+        for (var i = 0; i < node.attributes.length; i++) {
+
+          if (node.attributes[i].name == 'name') {
+
+            var child = document.createElement('div');
+            child.innerHTML = node.attributes[i].nodeValue;
+            parent.appendChild(child);
+
+          } else {
+
+            var child = document.createElement('label');
+            child.innerHTML = node.attributes[i].nodeName;
+            parent.appendChild(child);
+
+            var child = document.createElement('input');
+            child.value = node.attributes[i].nodeValue;
+            child.onchange = function (e) {
+              node.setAttribute('value', e.target.value);
+
+              var s = new XMLSerializer();
+              //console.log( s.serializeToString(xmlDoc) );
+
+              _globals.tabConfig.editor.setValue(s.serializeToString(xmlDoc));
+
+            };
+            parent.appendChild(child);
+
           }
+
         }
       }
+
+
+      if (node.childNodes.length > 0) {
+        var sub = document.createElement('ul');
+        var length = node.childNodes.length;
+        for (var i = 0; i < length; i++) {
+          var item = renderFormField(node.childNodes[i]);
+          if (item) {
+            sub.appendChild(item);
+          }
+
+        }
+        parent.appendChild(sub);
+      }
+
+      return parent;
     };
 
-    var tmp = false;
-    var htmlparser = require("htmlparser2");
-    var parser = new htmlparser.Parser({
-    	onopentag: function(name, attribs){
-        console.log('start:',name, attribs, tmp);
-        if (name == 'widget' ) {
-          obj.widget = {
-            '@':attribs,
-            '#':{}
-          };
-        } else {
-          //tmp = [name,attribs];
-          tmp = [name, {}];
-          if (attribs) {
-            tmp[1]['@'] = attribs;
-          }
-        }
-        /*else if (name == 'name' ) {
+    var loopNodes = function (selector, node) {
 
-          tmp = [name,attribs];
-        } else if (name == 'description' ) {
+      if (!selector || !node) {
+        return false;
+      }
+      var foo = xmlDoc.querySelectorAll(selector);
+      //console.log(foo);
+      var length = foo.length;
+      for (var i = 0; i < length; i++) {
+        node.appendChild( renderFormField(foo[i]) );
+      }
 
-        } else if (name == 'author' ) {
+    };
 
-        } else if (name == 'content' ) {
-          tmp = [name,attribs];
-        } else if (name == 'platform' ) {
+    var parent = document.createElement('ul');
 
-        } else if (name == 'preference' ) {
+    //loopNodes('widget', parent);
 
-        } else if (name == 'gap:plugin' ) {
+    //loopNodes('platform', parent);
+    //loopNodes('preference', parent);
 
-        } else if (name == 'plugin' ) {
-
-        } else if (name == 'gap:config-file' ) {
-
-        } else if (name == 'access' ) {
-
-        } else if (name == 'allow-intent' ) {
-
-        } else if (name == 'icon' ) {
-
-        } else if (name == 'gap:splash' ) {
-
-        } else if (name == 'splash' ) {
-
-        }*/
-    	},
-    	ontext: function(text){
-    		console.log("-->",  text, tmp);
-        if (text && tmp) {
-          tmp[1]['#'] = text;
-        }
-    	},
-    	onclosetag: function(tagname){
-        console.log("end:",tagname,tmp);
-        if (tmp) {
-          if ( !Array.isArray(obj.widget['#'][tmp[0]]) ) {
-            obj.widget['#'][tmp[0]] = [];
-          }
-          obj.widget['#'][tmp[0]].push(tmp[1]);
-
-          //console.log(typeof obj.widget['#'][tmp[0]]);
-
-        }
-        tmp = false;
-    	},
-      oncomment: function(tagname){
-        console.log("//:",tagname);
-    	}
-    }, {decodeEntities: true, xmlMode: true});
-    parser.write(data);
-    parser.end();
-
-    //console.log(parser);
 
     return function () {
 
-      var CodeMirror = require('CodeMirror');
+      //var s = new XMLSerializer();
+      //console.log( s.serializeToString(xmlDoc) );
+
+      require('codemirror/mode/xml/xml');
+
+      var CodeMirror = require('codemirror/lib/codemirror');
+
       _globals.tabConfig.editor = CodeMirror.fromTextArea(document.getElementById('editor.config.content'), {
-        lineNumbers: true
+        lineNumbers: true,
+        theme: 'crisper',
+        mode: 'xml'
       });
       _globals.tabConfig.editor.setValue(data+'');
 
@@ -685,8 +696,25 @@ var myTask = {
         document.getElementById('editor.config.save').classList.remove('disable');
       });
 
-      var o2x = require('object-to-xml');
-      console.log(o2x(obj));
+      //var o2x = require('object-to-xml');
+      //console.log(o2x(obj));
+
+      var form = new cForm('configForm');
+
+      var fields = document.getElementById('editor.config.ui').querySelectorAll('input, select');
+      console.log(fields);
+      for (var i = 0; i < fields.length; i++) {
+        fields[i].onchange = function (e) {
+
+          form.validate({required: 'invalide'})
+
+          console.log(e.target.value, e.target.name, e.target.getAttribute('data-node') );
+
+          //console.log( form.getValues() );
+        };
+      }
+
+
 
       myTaskHelper.editorSwitchTab(event.target);
     };
@@ -694,10 +722,23 @@ var myTask = {
 
   editorTabIcons: function (pageId, pageContent, event, dom) {
 
+    var data = myTaskHelper.getFile(_globals.tabConfig.path);
+    if (!data) {
+      return false;
+    }
+
+    var parser = new DOMParser();
+    var xmlDoc = parser.parseFromString(data,"text/xml");
+    var icons = xmlDoc.querySelectorAll('icon');
+
+    console.log(icons);
+
     return function () {
       myTaskHelper.editorSwitchTab(event.target);
     };
   },
+
+
   editorTabSplash: function (pageId, pageContent, event, dom) {
 
     return function () {
@@ -717,10 +758,13 @@ var myTask = {
 
     return function () {
 
+      require('codemirror/mode/javascript/javascript');
 
-      var CodeMirror = require('CodeMirror');
+      var CodeMirror = require('codemirror/lib/codemirror');
       _globals.tabAppjs.editor = CodeMirror.fromTextArea(document.getElementById('editor.appjs.content'), {
-        lineNumbers: true
+        lineNumbers: true,
+        theme: 'crisper',
+        mode: 'javascript'
       });
       _globals.tabAppjs.editor.setValue(data+'');
       _globals.tabAppjs.editor.on('change', function (cm) {
@@ -742,6 +786,7 @@ var myTask = {
   editorTabStyle: function (pageId, pageContent, event, dom) {
 
     var list = myTaskHelper.getDir(_globals.appActive.data.localPath+'/www/css/');
+    _globals.tabStyle.editor = false;
 
     return function () {
 
@@ -778,15 +823,23 @@ var myTask = {
 
     _globals.tabStyle.path = _globals.appActive.data.localPath+'/www/css/'+pageContent;
 
-    var CodeMirror = require('CodeMirror');
-    _globals.tabStyle.editor = CodeMirror.fromTextArea(document.getElementById('editor.style.content'), {
-      lineNumbers: true
-    });
-    _globals.tabStyle.editor.setValue(data+'');
-    _globals.tabStyle.editor.on('change', function (cm) {
-      document.getElementById('editor.style.save').classList.remove('disable');
-    });
+    if (_globals.tabStyle.editor) {
+      _globals.tabStyle.editor.setValue(data+'');
+    } else {
+      require('codemirror/mode/css/css');
 
+      var CodeMirror = require('codemirror/lib/codemirror');
+
+      _globals.tabStyle.editor = CodeMirror.fromTextArea(document.getElementById('editor.style.content'), {
+        lineNumbers: true,
+        theme: 'crisper',
+        mode: 'css'
+      });
+      _globals.tabStyle.editor.setValue(data+'');
+      _globals.tabStyle.editor.on('change', function (cm) {
+        document.getElementById('editor.style.save').classList.remove('disable');
+      });
+    }
     myTaskHelper.setActive('editor.style.files','active');
 
     return false;

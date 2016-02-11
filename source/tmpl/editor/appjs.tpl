@@ -1,4 +1,9 @@
-appjs
-<button id="editor.appjs.save" class="pageBtn disable" data-task="editorTabAppjsSave">save Page</button>
+<div class="submenue">
+  <button id="editor.appjs.save" class="pageBtn disable flex btn" data-task="editorTabAppjsSave">save Page</button>
+</div>
 
-<textarea id="editor.appjs.content"></textarea>
+<div class="content flex p-top-1">
+
+  <textarea id="editor.appjs.content"></textarea>
+
+</div>
